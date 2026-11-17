@@ -106,5 +106,19 @@ public class TurfController {
         );
     }
 
+    @GetMapping("/{turfId}/price")
+    @Operation(
+            summary = "Calculate turf booking price",
+            description = "Calculates price based on weekday, weekend and peak hours"
+    )
+    public ResponseEntity<BigDecimal> calculatePrice(
+            @PathVariable Long turfId,
+            @RequestParam LocalDate bookingDate,
+            @RequestParam LocalTime startTime) {
+        return ResponseEntity.ok(
+                turfService.calculatePrice(turfId, bookingDate, startTime)
+        );
+    }
+
 }
 

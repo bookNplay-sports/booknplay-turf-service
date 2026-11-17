@@ -123,4 +123,20 @@ class TurfControllerTest {
         assertSame(turf, response.getBody());
         verify(turfService).getTurfById(7L);
     }
+
+    @Test
+    void calculatePricePassesTurfIdDateAndStartTimeToService() {
+        LocalDate bookingDate = LocalDate.of(2026, 11, 21);
+        LocalTime startTime = LocalTime.of(18, 30);
+        BigDecimal price = new BigDecimal("150.0");
+        when(turfService.calculatePrice(7L, bookingDate, startTime))
+                .thenReturn(price);
+
+        ResponseEntity<BigDecimal> response =
+                turfController.calculatePrice(7L, bookingDate, startTime);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(price, response.getBody());
+        verify(turfService).calculatePrice(7L, bookingDate, startTime);
+    }
 }

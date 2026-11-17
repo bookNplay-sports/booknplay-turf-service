@@ -32,5 +32,10 @@ public interface TurfService {
             LocalDate bookingDate,
             BigDecimal maxPrice
     );
+    BigDecimal calculatePrice(
+            Long turfId,
+            LocalDate bookingDate,
+            LocalTime startTime
+    );
 
 }

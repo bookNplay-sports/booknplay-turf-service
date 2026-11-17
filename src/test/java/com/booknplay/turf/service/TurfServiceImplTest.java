@@ -1,5 +1,7 @@
 package com.booknplay.turf.service;
 
+import com.booknplay.turf.client.NotificationClient;
+import com.booknplay.turf.dto.EmailNotificationRequest;
 import com.booknplay.turf.entity.Turf;
 import com.booknplay.turf.exception.InvalidTurfException;
 import com.booknplay.turf.exception.TurfNotFoundException;
@@ -22,12 +24,14 @@ import static org.mockito.Mockito.*;
 public class TurfServiceImplTest {
 
     private TurfRepository turfRepository;
+    private NotificationClient notificationClient;
     private TurfServiceImpl turfService;
 
     @BeforeEach
     void setUp() {
         turfRepository = mock(TurfRepository.class);
-        turfService = new TurfServiceImpl(turfRepository);
+        notificationClient = mock(NotificationClient.class);
+        turfService = new TurfServiceImpl(turfRepository, notificationClient);
     }
 
     @Test
@@ -74,6 +78,8 @@ public class TurfServiceImplTest {
     @Test
     void approveTurfUpdatesStatusAndAdminRemark() {
         Turf turf = turfWithStatus(TurfStatus.PENDING);
+        turf.setName("Central Turf");
+        turf.setOwnerEmail("owner@example.com");
         when(turfRepository.findById(7L)).thenReturn(Optional.of(turf));
         when(turfRepository.save(turf)).thenReturn(turf);
 
@@ -83,6 +89,14 @@ public class TurfServiceImplTest {
         assertEquals(TurfStatus.APPROVED, turf.getStatus());
         assertEquals("Approved", turf.getAdminRemark());
         verify(turfRepository).save(turf);
+        verify(notificationClient).sendEmail(new EmailNotificationRequest(
+                "owner@example.com",
+                "Your Turf Has Been Approved",
+                "ONBOARDING_STATUS",
+                "Central Turf",
+                "APPROVED",
+                "Approved"
+        ));
     }
 
     @Test
@@ -94,11 +108,14 @@ public class TurfServiceImplTest {
                 () -> turfService.approveTurf(7L, "Approved"));
 
         verify(turfRepository, never()).save(any(Turf.class));
+        verifyNoInteractions(notificationClient);
     }
 
     @Test
     void rejectTurfUpdatesStatusAndAdminRemark() {
         Turf turf = turfWithStatus(TurfStatus.PENDING);
+        turf.setName("Central Turf");
+        turf.setOwnerEmail("owner@example.com");
         when(turfRepository.findById(7L)).thenReturn(Optional.of(turf));
         when(turfRepository.save(turf)).thenReturn(turf);
 
@@ -108,6 +125,14 @@ public class TurfServiceImplTest {
         assertEquals(TurfStatus.REJECTED, turf.getStatus());
         assertEquals("Incomplete details", turf.getAdminRemark());
         verify(turfRepository).save(turf);
+        verify(notificationClient).sendEmail(new EmailNotificationRequest(
+                "owner@example.com",
+                "Your Turf Registration Has Been Rejected",
+                "ONBOARDING_STATUS",
+                "Central Turf",
+                "REJECTED",
+                "Incomplete details"
+        ));
     }
 
     @Test
@@ -119,6 +144,7 @@ public class TurfServiceImplTest {
                 () -> turfService.rejectTurf(7L, "Incomplete details"));
 
         verify(turfRepository, never()).save(any(Turf.class));
+        verifyNoInteractions(notificationClient);
     }
 
     @Test
@@ -213,6 +239,70 @@ public class TurfServiceImplTest {
                 LocalDate.of(2026, 11, 17), new BigDecimal("100"));
 
         assertEquals(List.of(withinBudget), result);
+    }
+
+    @Test
+    void calculatePriceUsesBasePriceOnWeekdayOutsidePeakHours() {
+        when(turfRepository.findById(7L))
+                .thenReturn(Optional.of(turfWithPrice("100")));
+
+        BigDecimal price = turfService.calculatePrice(
+                7L, LocalDate.of(2026, 11, 17), LocalTime.of(17, 59));
+
+        assertEquals(new BigDecimal("100"), price);
+    }
+
+    @Test
+    void calculatePriceAppliesWeekendMultiplierOutsidePeakHours() {
+        when(turfRepository.findById(7L))
+                .thenReturn(Optional.of(turfWithPrice("100")));
+
+        BigDecimal price = turfService.calculatePrice(
+                7L, LocalDate.of(2026, 11, 21), LocalTime.of(17, 59));
+
+        assertEquals(new BigDecimal("125.00"), price);
+    }
+
+    @Test
+    void calculatePriceAppliesPeakHourMultiplierAtSixPm() {
+        when(turfRepository.findById(7L))
+                .thenReturn(Optional.of(turfWithPrice("100")));
+
+        BigDecimal price = turfService.calculatePrice(
+                7L, LocalDate.of(2026, 11, 17), LocalTime.of(18, 0));
+
+        assertEquals(new BigDecimal("150.0"), price);
+    }
+
+    @Test
+    void calculatePriceAppliesPeakMultiplierInsteadOfWeekendMultiplier() {
+        when(turfRepository.findById(7L))
+                .thenReturn(Optional.of(turfWithPrice("100")));
+
+        BigDecimal price = turfService.calculatePrice(
+                7L, LocalDate.of(2026, 11, 21), LocalTime.of(20, 59));
+
+        assertEquals(new BigDecimal("150.0"), price);
+    }
+
+    @Test
+    void calculatePriceUsesNonPeakRateAtNinePm() {
+        when(turfRepository.findById(7L))
+                .thenReturn(Optional.of(turfWithPrice("100")));
+
+        BigDecimal price = turfService.calculatePrice(
+                7L, LocalDate.of(2026, 11, 17), LocalTime.of(21, 0));
+
+        assertEquals(new BigDecimal("100"), price);
+    }
+
+    @Test
+    void calculatePriceThrowsWhenTurfDoesNotExist() {
+        when(turfRepository.findById(7L)).thenReturn(Optional.empty());
+
+        assertThrows(TurfNotFoundException.class, () ->
+                turfService.calculatePrice(
+                        7L, LocalDate.of(2026, 11, 17), LocalTime.of(18, 0)));
     }
 
     private Turf turfWithStatus(TurfStatus status) {

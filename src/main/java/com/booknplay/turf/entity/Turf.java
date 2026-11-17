@@ -4,7 +4,10 @@ package com.booknplay.turf.entity;
 import com.booknplay.turf.utility.TurfStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 @Entity
 @Table(name = "turfs")
@@ -28,4 +31,8 @@ public class Turf {
     @Enumerated(EnumType.STRING)
     private TurfStatus status;
     private String adminRemark;
+
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 }
