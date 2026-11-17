@@ -107,17 +107,7 @@ public class TurfServiceImpl implements TurfService {
     @Override
 
     public List<Turf> searchApprovedTurfs(
-
-            String city,
-
-            String area,
-
-            String sport,
-
-            LocalDate bookingDate,
-
-            BigDecimal maxPrice) {
-
+            String city, String area, String sport, LocalDate bookingDate, BigDecimal maxPrice) {
         List<Turf> turfs = turfRepository
                 .findByStatusAndCityIgnoreCaseAndAreaIgnoreCaseAndSportsContainingIgnoreCase(
                         TurfStatus.APPROVED,
@@ -126,62 +116,37 @@ public class TurfServiceImpl implements TurfService {
                         sport
 
                 );
-
         BigDecimal multiplier = bookingDate.getDayOfWeek().getValue() >= 6
-
                 ? new BigDecimal("1.25")
-
                 : BigDecimal.ONE;
-
-        return turfs.stream()
-
-                .filter(turf -> turf.getBasePrice()
-
+        return turfs.stream().filter(turf -> turf.getBasePrice()
                         .multiply(multiplier)
-
                         .compareTo(maxPrice) <= 0)
-
                 .toList();
 
     }
     @Override
 
     public BigDecimal calculatePrice(
-
             Long turfId,
-
             LocalDate bookingDate,
-
             LocalTime startTime) {
-
         Turf turf = getTurfById(turfId);
-
         BigDecimal basePrice = turf.getBasePrice();
-
-        // Peak hours: 6 PM to 9 PM
-
         if (!startTime.isBefore(LocalTime.of(18, 0))
                 && startTime.isBefore(LocalTime.of(21, 0))) {
 
             return basePrice.multiply(new BigDecimal("1.5"));
 
         }
-
-        // Weekend pricing
-
         DayOfWeek day = bookingDate.getDayOfWeek();
 
         if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
-
             return basePrice.multiply(new BigDecimal("1.25"));
 
         }
-
-        // Normal weekday pricing
-
         return basePrice;
 
     }
-
 
 }
